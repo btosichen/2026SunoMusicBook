@@ -73,7 +73,7 @@
         import { 
             BookOpen, Music, Mic, Sun, Smile, Play, CheckCircle, 
             Edit3, Heart, Star, Copy, ArrowRight, ArrowLeft, 
-            Sparkles, Info, X, FileText, Settings, User, Save, UploadCloud, Table
+            Sparkles, Info, X, FileText, Settings, User, Save, UploadCloud, Table, Bot
         } from 'lucide-react';
 
         const SunoMusicBook = () => {
@@ -576,6 +576,16 @@ Instruments: Acoustic Guitar, Light Percussion
                             className="flex-1 bg-white hover:bg-gray-50 text-indigo-900 text-xl md:text-3xl font-black py-6 md:py-8 px-8 rounded-3xl shadow-[0_6px_0_rgb(203,213,225)] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-4 border-4 border-indigo-100"
                             >
                             前往 Suno <ArrowRight size={36}/>
+                            </a>
+
+                            {/* 新增：前往 ChatGPT 按鈕 */}
+                            <a 
+                            href="https://chatgpt.com/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex-1 bg-white hover:bg-gray-50 text-indigo-900 text-xl md:text-3xl font-black py-6 md:py-8 px-8 rounded-3xl shadow-[0_6px_0_rgb(203,213,225)] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-4 border-4 border-indigo-100"
+                            >
+                            前往 ChatGPT <Bot size={36}/>
                             </a>
                         </div>
                         </div>
