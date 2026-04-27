@@ -59,6 +59,12 @@
       </h1>
     </div>
     <p class="mt-4 text-slate-600 font-medium text-lg">戴上耳機，一起進入同學們創作的奇幻故事世界吧！🎧</p>
+    
+    <!-- 登入後顯示的專屬歡迎語 -->
+    <div id="welcome-message" class="hidden mt-3 inline-flex items-center gap-2 px-5 py-2 bg-white/80 backdrop-blur rounded-full shadow-sm text-sm font-bold text-amber-600 border border-amber-100 transition-all">
+      <i data-lucide="user" class="w-4 h-4"></i>
+      <span id="welcome-nickname"></span>，歡迎探索圖書館！
+    </div>
   </header>
 
   <!-- 讀取中狀態 -->
@@ -153,6 +159,19 @@
         </div>
       </div>
 
+      <!-- 新增：互動紀錄總表連結 -->
+      <div class="bg-white rounded-3xl p-6 shadow-xl border border-indigo-100">
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-600">
+          <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+          後台紀錄與統計
+        </h2>
+        <p class="text-sm text-slate-500 mb-4 font-medium">觀看全班的點擊、按讚與留言即時紀錄總表（Google 試算表）。</p>
+        <a href="https://docs.google.com/spreadsheets/d/15Ux7dsBPrhi8RSYd1Gqe7Jh_WQwAFS9ZQsXLYF0zzHg/edit?usp=sharing" target="_blank" rel="noopener noreferrer" onclick="trackAction('點擊查看紀錄表', '無')" class="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-indigo-50 text-indigo-600 font-bold hover:bg-indigo-100 hover:shadow-inner transition-all active:scale-95 border-2 border-indigo-100">
+          <i data-lucide="external-link" class="w-5 h-5"></i>
+          開啟紀錄總表
+        </a>
+      </div>
+
     </div>
   </div>
 
@@ -160,7 +179,7 @@
     // ==========================================
     // 🔥 請將下方網址替換為您的 GAS 部署網址 🔥
     // ==========================================
-    const GAS_TRACKING_URL = 'https://script.google.com/macros/s/AKfycbzOfXwiWPmgun8rpxxegNC6TbUj2lgtLRwxM3bgQ-kdC3d9-ks3MzyeFjuiSUNvAvNHLQ/exec';
+    const GAS_TRACKING_URL = '請替換成您的_GAS_網頁應用程式_URL';
 
     // --- 核心資料與狀態 ---
     let studentsData = [];
@@ -203,6 +222,18 @@
     function checkNickname() {
       if (!currentUserNickname) {
         document.getElementById('nickname-modal').classList.remove('hidden');
+      } else {
+        showWelcomeMessage(); // 已有暱稱直接顯示歡迎語
+      }
+    }
+
+    // 顯示右上角/上方歡迎語
+    function showWelcomeMessage() {
+      const msgDiv = document.getElementById('welcome-message');
+      const nameSpan = document.getElementById('welcome-nickname');
+      if (msgDiv && nameSpan) {
+        nameSpan.textContent = currentUserNickname;
+        msgDiv.classList.remove('hidden');
       }
     }
 
@@ -212,6 +243,7 @@
         currentUserNickname = input;
         localStorage.setItem('visitor_nickname', input);
         document.getElementById('nickname-modal').classList.add('hidden');
+        showWelcomeMessage(); // 儲存後顯示歡迎語
       } else {
         alert("請輸入暱稱喔！");
       }
