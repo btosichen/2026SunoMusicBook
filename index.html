@@ -217,7 +217,7 @@
           
           studentsData.push({
             id: id,
-            title: `繪本小品 - 座號 ${id}`,
+            title: `繪本小品 - 繪本小品 ${id}`,
             link: link,
             submitted: link !== ''
           });
@@ -250,7 +250,7 @@
       studentsData.forEach(student => {
         const option = document.createElement('option');
         option.value = student.id;
-        option.textContent = `座號 ${student.id} ｜ ${student.submitted ? '✅ 已上架' : '✍️ 創作中'}`;
+        option.textContent = `繪本故事: ${student.id} ｜ ${student.submitted ? '✅ 已上架' : '✍️ 創作中'}`;
         select.appendChild(option);
       });
       // 同步目前選取的 ID
@@ -343,7 +343,7 @@
           <div class="flex flex-col pr-2">
             <span class="text-sm md:text-base text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
               <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center"><i data-lucide="book-open" class="w-4 h-4"></i></div> 
-              小作家座號 ${student.id}
+              小作家 ${student.id}
             </span>
             <span class="text-3xl md:text-4xl font-black text-slate-700 mt-3 leading-tight">${student.title}</span>
           </div>
