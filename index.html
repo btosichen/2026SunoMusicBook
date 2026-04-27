@@ -179,7 +179,7 @@
     // ==========================================
     // 🔥 請將下方網址替換為您的 GAS 部署網址 🔥
     // ==========================================
-    const GAS_TRACKING_URL = '請替換成您的_GAS_網頁應用程式_URL';
+    const GAS_TRACKING_URL = 'https://docs.google.com/spreadsheets/d/15Ux7dsBPrhi8RSYd1Gqe7Jh_WQwAFS9ZQsXLYF0zzHg/edit?usp=sharing';
 
     // --- 核心資料與狀態 ---
     let studentsData = [];
@@ -195,6 +195,25 @@
       "我也想看下一集😆"
     ];
 
+    // --- 智慧網址轉換器 (將各種連結轉為可內嵌 iframe 格式) ---
+    function getEmbedUrl(url) {
+      if (!url) return '';
+      try {
+        // 判斷是否為 YouTube 連結
+        let ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+        if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1`;
+        
+        // 判斷是否為 Google Drive 連結
+        let gdMatch = url.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+        if (gdMatch) return `https://drive.google.com/file/d/${gdMatch[1]}/preview`;
+        
+        // 若無法識別，則直接回傳原網址嘗試內嵌
+        return url;
+      } catch (e) {
+        return url;
+      }
+    }
+
     // --- 追蹤紀錄工具 (寫入 GAS) ---
     async function trackAction(action, bookId, details = '') {
       if (!GAS_TRACKING_URL || GAS_TRACKING_URL === '請替換成您的_GAS_網頁應用程式_URL') {
@@ -202,7 +221,6 @@
         return;
       }
       try {
-        // 使用 text/plain 避免 CORS preflight 阻擋
         fetch(GAS_TRACKING_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -212,7 +230,7 @@
             bookId: bookId,
             details: details
           })
-        }).catch(err => console.error("Tracking Error:", err)); // 背景非同步執行
+        }).catch(err => console.error("Tracking Error:", err)); 
       } catch (error) {
         console.error("Tracking Exception:", error);
       }
@@ -223,11 +241,10 @@
       if (!currentUserNickname) {
         document.getElementById('nickname-modal').classList.remove('hidden');
       } else {
-        showWelcomeMessage(); // 已有暱稱直接顯示歡迎語
+        showWelcomeMessage(); 
       }
     }
 
-    // 顯示右上角/上方歡迎語
     function showWelcomeMessage() {
       const msgDiv = document.getElementById('welcome-message');
       const nameSpan = document.getElementById('welcome-nickname');
@@ -243,7 +260,7 @@
         currentUserNickname = input;
         localStorage.setItem('visitor_nickname', input);
         document.getElementById('nickname-modal').classList.add('hidden');
-        showWelcomeMessage(); // 儲存後顯示歡迎語
+        showWelcomeMessage(); 
       } else {
         alert("請輸入暱稱喔！");
       }
@@ -283,7 +300,7 @@
     // --- 初始化與資料讀取 ---
     async function init() {
       lucide.createIcons();
-      checkNickname(); // 檢查並跳出輸入暱稱
+      checkNickname(); 
 
       try {
         const sheetId = '1RiNHdFCZ_0hFGSEesEW0L7FPSk4kIPa-PNw6VhMiCNY';
@@ -407,6 +424,9 @@
 
       const data = interactions[student.id] || { likes: 0, likedByMe: false, comments: [] };
       const isMissing = !student.submitted;
+      
+      // 將學生提供的網址轉換為適合內嵌的格式
+      const embedUrl = isMissing ? '' : getEmbedUrl(student.link);
 
       cardEmpty.classList.add('hidden');
       cardEmpty.classList.remove('flex');
@@ -439,8 +459,8 @@
           `}
         </div>
 
-        <!-- 主要內容區 -->
-        <div class="flex-grow flex flex-col justify-center relative z-10 my-4">
+        <!-- 主要內容區 (嵌入影片/畫面) -->
+        <div class="flex-grow flex flex-col justify-center relative z-10 my-2">
           ${isMissing ? `
             <div class="h-48 md:h-64 bg-slate-50 rounded-[2rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
               <span class="text-5xl md:text-6xl mb-4 grayscale opacity-50 block animate-bounce">✍️</span>
@@ -448,21 +468,46 @@
               <span class="text-slate-400 mt-2">晚點再來看看吧！</span>
             </div>
           ` : `
-            <a href="${student.link}" target="_blank" rel="noopener noreferrer" onclick="trackAction('點擊觀看繪本', '${student.id}')" class="group/btn relative h-48 md:h-64 bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 rounded-[2rem] flex flex-col items-center justify-center text-white overflow-hidden shadow-lg transition-transform active:scale-95 hover:shadow-2xl">
-              <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjIpIi8+PC9zdmc+')] opacity-30"></div>
-              <div class="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-in-out"></div>
+            <!-- 16:9 比例的影片容器 -->
+            <div class="relative w-full aspect-video bg-slate-900 rounded-[2rem] overflow-hidden shadow-xl border-4 border-slate-100">
               
-              <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm border border-white/30 group-hover/btn:scale-110 transition-transform duration-300">
-                <i data-lucide="headphones" class="w-10 h-10 relative z-10"></i>
+              <!-- 實際的 iframe (預設隱藏，點擊後才載入網址，節省網路資源) -->
+              <iframe 
+                id="iframe-${student.id}" 
+                class="absolute inset-0 w-full h-full hidden border-0 bg-white" 
+                allowfullscreen="true" 
+                webkitallowfullscreen="true" 
+                mozallowfullscreen="true"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+              </iframe>
+              
+              <!-- 播放遮罩 (點擊後觸發追蹤，再載入 iframe) -->
+              <div id="overlay-${student.id}" onclick="playInlineVideo('${student.id}', '${embedUrl}')" class="absolute inset-0 bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 flex flex-col items-center justify-center text-white cursor-pointer group/btn">
+                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjIpIi8+PC9zdmc+')] opacity-30"></div>
+                <div class="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-in-out"></div>
+                
+                <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm border border-white/30 group-hover/btn:scale-110 transition-transform duration-300">
+                  <i data-lucide="play-circle" class="w-10 h-10 relative z-10 fill-white text-rose-500"></i>
+                </div>
+                <span class="font-black text-2xl md:text-3xl relative z-10 tracking-widest drop-shadow-md">點擊播放有聲繪本</span>
+                <span class="text-white/90 font-medium mt-2 text-sm bg-black/20 px-3 py-1 rounded-full relative z-10 flex items-center gap-1">
+                  <i data-lucide="maximize" class="w-3 h-3"></i> 播放後可切換全螢幕觀看
+                </span>
               </div>
-              <span class="font-black text-2xl md:text-3xl relative z-10 tracking-widest drop-shadow-md">點擊開啟有聲繪本</span>
-              <span class="text-white/80 font-medium mt-2 flex items-center gap-1 text-sm"><i data-lucide="sparkles" class="w-4 h-4"></i> 將會在新分頁中開啟檔案</span>
-            </a>
+
+            </div>
+            
+            <!-- 備用方案：若有時學校網路或檔案權限不允許內嵌，仍可提供原連結 -->
+            <div class="text-right mt-3 pr-2">
+              <a href="${student.link}" target="_blank" onclick="trackAction('新分頁開啟繪本(備用)', '${student.id}')" class="text-sm text-slate-400 hover:text-amber-600 font-medium transition-colors inline-flex items-center gap-1">
+                <i data-lucide="external-link" class="w-4 h-4"></i> 畫面出不來？點此開啟原始網頁
+              </a>
+            </div>
           `}
         </div>
 
         <!-- 互動條 -->
-        <div class="flex gap-4 mt-6 pt-6 border-t-2 relative z-10 border-slate-100">
+        <div class="flex gap-4 mt-4 pt-6 border-t-2 relative z-10 border-slate-100">
           <button onclick="handleLike()" class="flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-bold text-lg transition-all active:scale-90 ${data.likedByMe ? 'bg-pink-100 text-pink-600 shadow-inner border-2 border-pink-200' : 'bg-slate-50 text-slate-500 border-2 border-slate-100 hover:bg-pink-50 hover:text-pink-500 hover:border-pink-200'}">
             <i data-lucide="heart" class="w-7 h-7 transition-transform ${data.likedByMe ? 'fill-current scale-110' : 'hover:scale-110'}"></i>
             ${data.likes > 0 ? `${data.likes} 個愛心` : '給個愛心'}
@@ -519,6 +564,18 @@
       lucide.createIcons({ root: cardContent });
     }
 
+    // --- 內嵌播放事件處理 ---
+    window.playInlineVideo = function(id, url) {
+      // 傳送追蹤記錄給 GAS
+      trackAction('內嵌播放繪本', id);
+      
+      // 隱藏漸層遮罩，顯示真正的 iframe 影片
+      document.getElementById('overlay-' + id).classList.add('hidden');
+      const iframe = document.getElementById('iframe-' + id);
+      iframe.src = url; 
+      iframe.classList.remove('hidden');
+    };
+
     // --- 互動事件處理 ---
     window.handleSelectChange = function(event) {
       selectedStudentId = event.target.value;
@@ -544,7 +601,6 @@
       interactions[selectedStudentId] = { ...current, likedByMe: newLikedStatus, likes: newLikesCount };
       saveInteractions();
       
-      // 送出 GAS 追蹤 (動作: 按讚 / 取消讚)
       trackAction(newLikedStatus ? '按愛心' : '收回愛心', selectedStudentId);
 
       renderCard();
@@ -580,7 +636,6 @@
       };
       saveInteractions();
 
-      // 送出 GAS 追蹤 (動作: 留言)
       trackAction('留言', selectedStudentId, text);
 
       renderCard();
