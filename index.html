@@ -33,6 +33,21 @@
 </head>
 <body class="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-cyan-50 p-6 md:p-8 text-slate-800 flex flex-col items-center">
 
+  <!-- 暱稱輸入 Modal -->
+  <div id="nickname-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl transform transition-all text-center">
+      <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="user" class="w-8 h-8 text-amber-500"></i>
+      </div>
+      <h3 class="text-2xl font-bold text-slate-800 mb-2">歡迎來到圖書館！</h3>
+      <p class="text-slate-500 mb-6">請輸入你的專屬暱稱，<br>讓小作家們知道是誰來看作品喔：</p>
+      <input type="text" id="nickname-input" placeholder="例如：愛看書的小明" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 mb-4 text-center text-lg font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-amber-200 focus:border-amber-400 transition-all">
+      <button onclick="saveNickname()" class="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 rounded-xl hover:shadow-lg hover:from-amber-500 hover:to-orange-600 transition-all active:scale-95 text-lg">
+        開始探索
+      </button>
+    </div>
+  </div>
+
   <!-- 標題區塊 -->
   <header class="w-full max-w-4xl text-center relative z-10 mb-8">
     <div class="inline-block relative">
@@ -142,9 +157,15 @@
   </div>
 
   <script>
+    // ==========================================
+    // 🔥 請將下方網址替換為您的 GAS 部署網址 🔥
+    // ==========================================
+    const GAS_TRACKING_URL = 'https://script.google.com/macros/s/AKfycbzOfXwiWPmgun8rpxxegNC6TbUj2lgtLRwxM3bgQ-kdC3d9-ks3MzyeFjuiSUNvAvNHLQ/exec';
+
     // --- 核心資料與狀態 ---
     let studentsData = [];
     let interactions = JSON.parse(localStorage.getItem('class_portfolio_data')) || {};
+    let currentUserNickname = localStorage.getItem('visitor_nickname') || '';
     let selectedStudentId = '';
     let isCommentOpen = false;
 
@@ -155,11 +176,46 @@
       "我也想看下一集😆"
     ];
 
-    // --- 工具函數 ---
-    const generateNickname = () => {
-      const num = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
-      return `小小觀察員${num}`;
-    };
+    // --- 追蹤紀錄工具 (寫入 GAS) ---
+    async function trackAction(action, bookId, details = '') {
+      if (!GAS_TRACKING_URL || GAS_TRACKING_URL === '請替換成您的_GAS_網頁應用程式_URL') {
+        console.warn('未設定 GAS Tracking URL，跳過寫入紀錄。');
+        return;
+      }
+      try {
+        // 使用 text/plain 避免 CORS preflight 阻擋
+        fetch(GAS_TRACKING_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            nickname: currentUserNickname || "神秘客",
+            action: action,
+            bookId: bookId,
+            details: details
+          })
+        }).catch(err => console.error("Tracking Error:", err)); // 背景非同步執行
+      } catch (error) {
+        console.error("Tracking Exception:", error);
+      }
+    }
+
+    // --- 暱稱管理工具 ---
+    function checkNickname() {
+      if (!currentUserNickname) {
+        document.getElementById('nickname-modal').classList.remove('hidden');
+      }
+    }
+
+    window.saveNickname = function() {
+      const input = document.getElementById('nickname-input').value.trim();
+      if (input) {
+        currentUserNickname = input;
+        localStorage.setItem('visitor_nickname', input);
+        document.getElementById('nickname-modal').classList.add('hidden');
+      } else {
+        alert("請輸入暱稱喔！");
+      }
+    }
 
     const parseCSV = (str) => {
       const result = [];
@@ -194,8 +250,8 @@
 
     // --- 初始化與資料讀取 ---
     async function init() {
-      // 繪製初始 Icons
       lucide.createIcons();
+      checkNickname(); // 檢查並跳出輸入暱稱
 
       try {
         const sheetId = '1RiNHdFCZ_0hFGSEesEW0L7FPSk4kIPa-PNw6VhMiCNY';
@@ -223,12 +279,10 @@
           });
         }
         
-        // 隱藏讀取畫面，顯示主畫面
         document.getElementById('loading-state').classList.add('hidden');
         document.getElementById('main-content').classList.remove('hidden');
         document.getElementById('main-content').classList.add('flex');
 
-        // 渲染畫面元件
         renderDropdown();
         renderProgress();
         renderLeaderboard();
@@ -253,7 +307,6 @@
         option.textContent = `繪本故事: ${student.id} ｜ ${student.submitted ? '✅ 已上架' : '✍️ 創作中'}`;
         select.appendChild(option);
       });
-      // 同步目前選取的 ID
       if (selectedStudentId) select.value = selectedStudentId;
     }
 
@@ -269,7 +322,6 @@
     function renderLeaderboard() {
       const container = document.getElementById('leaderboard-content');
       
-      // 計算讚數並排序
       const top3Works = studentsData.map(student => ({
         ...student,
         likes: interactions[student.id]?.likes || 0
@@ -321,20 +373,16 @@
         return;
       }
 
-      // 取得互動資料
       const data = interactions[student.id] || { likes: 0, likedByMe: false, comments: [] };
       const isMissing = !student.submitted;
 
-      // 切換顯示狀態
       cardEmpty.classList.add('hidden');
       cardEmpty.classList.remove('flex');
       cardContent.classList.remove('hidden');
       cardContent.classList.add('flex');
 
-      // 設定卡片外觀樣式
       cardContent.className = `relative bg-white rounded-[2.5rem] p-6 md:p-10 shadow-2xl border-2 transition-all duration-500 flex flex-col ${isMissing ? 'border-slate-200 grayscale-[0.6] opacity-90' : 'border-amber-200 ring-4 ring-amber-50 ring-offset-4 group'}`;
 
-      // 組合 HTML
       let html = `
         ${!isMissing ? `<div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-100 to-orange-100 rounded-bl-[5rem] rounded-tr-[2.5rem] opacity-50 z-0 transition-transform group-hover:scale-110"></div>` : ''}
         
@@ -368,7 +416,7 @@
               <span class="text-slate-400 mt-2">晚點再來看看吧！</span>
             </div>
           ` : `
-            <a href="${student.link}" target="_blank" rel="noopener noreferrer" class="group/btn relative h-48 md:h-64 bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 rounded-[2rem] flex flex-col items-center justify-center text-white overflow-hidden shadow-lg transition-transform active:scale-95 hover:shadow-2xl">
+            <a href="${student.link}" target="_blank" rel="noopener noreferrer" onclick="trackAction('點擊觀看繪本', '${student.id}')" class="group/btn relative h-48 md:h-64 bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 rounded-[2rem] flex flex-col items-center justify-center text-white overflow-hidden shadow-lg transition-transform active:scale-95 hover:shadow-2xl">
               <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjIpIi8+PC9zdmc+')] opacity-30"></div>
               <div class="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-in-out"></div>
               
@@ -436,22 +484,21 @@
       `;
 
       cardContent.innerHTML = html;
-      lucide.createIcons({ root: cardContent }); // 重新渲染剛產生的 Icon
+      lucide.createIcons({ root: cardContent });
     }
 
     // --- 互動事件處理 ---
     window.handleSelectChange = function(event) {
       selectedStudentId = event.target.value;
-      isCommentOpen = false; // 切換學生時關閉留言板
+      isCommentOpen = false;
       renderCard();
     };
 
     window.handleSelectStudent = function(id) {
       selectedStudentId = id;
       isCommentOpen = false;
-      document.getElementById('student-select').value = id; // 同步下拉選單
+      document.getElementById('student-select').value = id;
       renderCard();
-      // 畫面平滑捲動到卡片位置
       document.getElementById('student-select').scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
@@ -465,6 +512,9 @@
       interactions[selectedStudentId] = { ...current, likedByMe: newLikedStatus, likes: newLikesCount };
       saveInteractions();
       
+      // 送出 GAS 追蹤 (動作: 按讚 / 取消讚)
+      trackAction(newLikedStatus ? '按愛心' : '收回愛心', selectedStudentId);
+
       renderCard();
       renderLeaderboard();
     };
@@ -473,7 +523,6 @@
       isCommentOpen = !isCommentOpen;
       renderCard();
       
-      // 開啟時自動對焦輸入框
       if (isCommentOpen) {
         setTimeout(() => {
           const input = document.getElementById('comment-input');
@@ -488,7 +537,7 @@
       const current = interactions[selectedStudentId] || { likes: 0, likedByMe: false, comments: [] };
       const newComment = {
         id: Date.now().toString(),
-        author: generateNickname(),
+        author: currentUserNickname || "神秘客",
         text: text,
         timestamp: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
       };
@@ -498,6 +547,10 @@
         comments: [newComment, ...current.comments]
       };
       saveInteractions();
+
+      // 送出 GAS 追蹤 (動作: 留言)
+      trackAction('留言', selectedStudentId, text);
+
       renderCard();
     };
 
@@ -520,7 +573,6 @@
       }
     };
 
-    // 啟動程式
     window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
