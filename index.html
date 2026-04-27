@@ -1,887 +1,527 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>繪本音樂魔法師：Suno 教學互動 App</title>
-    
-    <!-- 1. 引入 Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. 引入 Babel (鎖定版本以確保穩定性) -->
-    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>班級有聲繪本圖書館</title>
+  
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 載入 Google 字體 -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  
+  <!-- 載入 Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- 3. 設定 Import Map (告訴瀏覽器去哪裡抓 React 和圖示庫) -->
-    <script type="importmap">
-    {
-        "imports": {
-            "react": "https://esm.sh/react@18.2.0",
-            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-            "lucide-react": "https://esm.sh/lucide-react@0.263.1"
-        }
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
     }
-    </script>
-
-    <!-- 自訂一些 CSS 動畫 -->
-    <style>
-        /* 隱藏捲軸但保留功能 (美觀用) */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .animate-fadeIn {
-            animation: fadeIn 0.5s ease-out forwards;
-        }
-        
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slideUp {
-            animation: slideUp 0.5s ease-out forwards;
-        }
-        
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-    </style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.3s ease-out forwards;
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
 </head>
-<body class="bg-orange-50 selection:bg-yellow-200 selection:text-orange-900 text-lg">
+<body class="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-cyan-50 p-6 md:p-8 text-slate-800 flex flex-col items-center">
+
+  <!-- 標題區塊 -->
+  <header class="w-full max-w-4xl text-center relative z-10 mb-8">
+    <div class="inline-block relative">
+      <div class="absolute -inset-1 bg-gradient-to-r from-amber-400 to-orange-500 rounded-3xl blur opacity-30 animate-pulse"></div>
+      <h1 class="relative bg-white px-8 py-4 rounded-3xl shadow-xl text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-center gap-3">
+        <i data-lucide="book-open" class="w-8 h-8 md:w-10 md:h-10 text-amber-500"></i>
+        班級有聲繪本圖書館
+        <i data-lucide="sparkles" class="w-8 h-8 md:w-10 md:h-10 text-orange-500"></i>
+      </h1>
+    </div>
+    <p class="mt-4 text-slate-600 font-medium text-lg">戴上耳機，一起進入同學們創作的奇幻故事世界吧！🎧</p>
+  </header>
+
+  <!-- 讀取中狀態 -->
+  <div id="loading-state" class="w-full max-w-2xl flex flex-col items-center justify-center py-20 bg-white/60 rounded-3xl border-2 border-dashed border-amber-200">
+    <i data-lucide="loader-2" class="w-12 h-12 text-amber-500 animate-spin mb-4"></i>
+    <h3 class="text-2xl font-bold text-slate-600">正在讀取試算表資料...</h3>
+    <p class="text-slate-400 mt-2">請稍候，正在準備小作家們的作品</p>
+  </div>
+
+  <!-- 錯誤狀態 -->
+  <div id="error-state" class="hidden w-full max-w-2xl flex flex-col items-center justify-center py-20 bg-white/60 rounded-3xl border-2 border-dashed border-rose-200 text-center px-6">
+    <span class="text-6xl mb-4 block">🚨</span>
+    <h3 class="text-2xl font-bold text-slate-600">讀取失敗</h3>
+    <p id="error-message" class="text-rose-500 mt-2"></p>
+  </div>
+
+  <!-- 主要內容區 (初始隱藏) -->
+  <div id="main-content" class="hidden w-full max-w-5xl flex flex-col lg:flex-row gap-8 items-start">
     
-    <!-- React 應用程式的掛載點 -->
-    <div id="root"></div>
+    <!-- 左側主要區塊：選單與置中卡片 -->
+    <div class="w-full lg:w-2/3 flex flex-col gap-6">
+      
+      <!-- 下拉式選單區塊 -->
+      <div class="bg-white rounded-3xl p-6 shadow-xl border border-amber-100 relative z-20">
+        <label for="student-select" class="block text-lg font-bold text-slate-700 mb-3 flex items-center gap-2">
+          <i data-lucide="chevron-down" class="w-5 h-5 text-amber-500"></i> 
+          請選擇你想欣賞的作品：
+        </label>
+        <div class="relative">
+          <select
+            id="student-select"
+            onchange="handleSelectChange(event)"
+            class="w-full appearance-none bg-amber-50 border-2 border-amber-200 text-slate-700 text-lg font-bold rounded-2xl px-5 py-4 pr-12 focus:outline-none focus:ring-4 focus:ring-amber-200/50 focus:border-amber-400 transition-all cursor-pointer shadow-inner"
+          >
+            <!-- 選項將由 JS 動態產生 -->
+          </select>
+          <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500">
+            <i data-lucide="chevron-down" class="w-6 h-6"></i>
+          </div>
+        </div>
+      </div>
 
-    <!-- React 程式碼邏輯 -->
-    <script type="text/babel" data-type="module" data-presets="react">
-        import React, { useState, useEffect } from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { 
-            BookOpen, Music, Mic, Sun, Smile, Play, CheckCircle, 
-            Edit3, Heart, Star, Copy, ArrowRight, ArrowLeft, 
-            Sparkles, Info, X, FileText, Settings, User, Save, UploadCloud, Table, Bot
-        } from 'lucide-react';
+      <!-- 正中間：單一作品展示區 -->
+      <div class="w-full transition-all duration-500" id="card-container">
+        <!-- 空白等待狀態 -->
+        <div id="card-empty-state" class="bg-white/50 border-2 border-dashed border-slate-300 rounded-[2rem] p-16 flex flex-col items-center justify-center text-center shadow-sm">
+          <span class="text-6xl mb-4 opacity-50 grayscale block">👆</span>
+          <h3 class="text-2xl font-bold text-slate-600">等待探索中</h3>
+          <p class="text-slate-500 mt-2 text-lg">請從上方選單選擇一位同學，即可觀看他的繪本作品！</p>
+        </div>
+        
+        <!-- 卡片內容 (由 JS 動態產生) -->
+        <div id="student-card" class="hidden relative bg-white rounded-[2.5rem] p-6 md:p-10 shadow-2xl border-2 transition-all duration-500 flex flex-col">
+          <!-- 內容將在這裡生成 -->
+        </div>
+      </div>
+    </div>
 
-        const SunoMusicBook = () => {
-            const [step, setStep] = useState(0);
-            const [showTips, setShowTips] = useState(false); // 控制進階技巧視窗
-            const [showSettings, setShowSettings] = useState(false); // 控制設定視窗
-            // 將提供的 Google Script URL 設定為預設值
-            const [googleScriptUrl, setGoogleScriptUrl] = useState('https://script.google.com/macros/s/AKfycbxxHZxMAV_bUQ-Zo0nhDGEFJ77L8atvMh6LH-Kr07EwETV-yIlAyJOa80DxmcvuMtT4/exec');
-            const [submitStatus, setSubmitStatus] = useState('idle'); // idle, submitting, success, error
+    <!-- 右側邊欄：排行榜與進度條 -->
+    <div class="w-full lg:w-1/3 flex flex-col gap-6">
+      
+      <!-- 排行榜 -->
+      <div class="bg-white rounded-3xl p-6 shadow-xl border border-rose-100">
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-rose-600">
+          <i data-lucide="trophy" class="w-6 h-6"></i>
+          最受歡迎 Top 3
+        </h2>
+        <div id="leaderboard-content">
+          <!-- 排行榜內容由 JS 生成 -->
+        </div>
+      </div>
+
+      <!-- 班級整體進度 -->
+      <div class="bg-white rounded-3xl p-6 shadow-xl border border-cyan-100">
+        <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-cyan-600">
+          <i data-lucide="book-open" class="w-6 h-6"></i>
+          全班上架進度
+        </h2>
+        <div class="text-center">
+          <div class="flex justify-between items-end mb-2">
+            <span class="text-sm text-slate-500 font-medium">進度條</span>
+            <span id="progress-text" class="text-lg font-black text-emerald-500">
+              0 / 0 本
+            </span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner">
+            <div id="progress-bar" class="bg-gradient-to-r from-emerald-400 to-cyan-400 h-4 rounded-full transition-all duration-1000 ease-out relative" style="width: 0%">
+              <div class="absolute inset-0 bg-white/20 w-full h-full animate-pulse"></div>
+            </div>
+          </div>
+          <p class="text-xs text-slate-400 mt-3 font-medium">只要試算表有填寫網址，就會自動計算為已上架喔！</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- 核心資料與狀態 ---
+    let studentsData = [];
+    let interactions = JSON.parse(localStorage.getItem('class_portfolio_data')) || {};
+    let selectedStudentId = '';
+    let isCommentOpen = false;
+
+    const ENCOURAGEMENTS = [
+      "這故事超有趣🔥",
+      "配音太生動了👏",
+      "情節設計很棒✨",
+      "我也想看下一集😆"
+    ];
+
+    // --- 工具函數 ---
+    const generateNickname = () => {
+      const num = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+      return `小小觀察員${num}`;
+    };
+
+    const parseCSV = (str) => {
+      const result = [];
+      let row = [];
+      let inQuotes = false;
+      let val = '';
+      for (let i = 0; i < str.length; i++) {
+        let char = str[i];
+        if (char === '"') {
+          if (inQuotes && str[i + 1] === '"') {
+            val += '"'; i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          row.push(val); val = '';
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+          if (char === '\r' && str[i + 1] === '\n') i++;
+          row.push(val); result.push(row);
+          row = []; val = '';
+        } else {
+          val += char;
+        }
+      }
+      if (val || row.length > 0) { row.push(val); result.push(row); }
+      return result;
+    };
+
+    const saveInteractions = () => {
+      localStorage.setItem('class_portfolio_data', JSON.stringify(interactions));
+    };
+
+    // --- 初始化與資料讀取 ---
+    async function init() {
+      // 繪製初始 Icons
+      lucide.createIcons();
+
+      try {
+        const sheetId = '1RiNHdFCZ_0hFGSEesEW0L7FPSk4kIPa-PNw6VhMiCNY';
+        const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+        const response = await fetch(url);
+        
+        if (!response.ok) throw new Error('無法連線到試算表');
+        
+        const csvText = await response.text();
+        const rows = parseCSV(csvText);
+        
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (row.length < 1 || (!row[0] && !row[1])) continue;
+          
+          const id = row[0]?.trim() || '';
+          if (!id) continue;
+          const link = row[1]?.trim() || '';
+          
+          studentsData.push({
+            id: id,
+            title: `繪本小品 - 座號 ${id}`,
+            link: link,
+            submitted: link !== ''
+          });
+        }
+        
+        // 隱藏讀取畫面，顯示主畫面
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('main-content').classList.add('flex');
+
+        // 渲染畫面元件
+        renderDropdown();
+        renderProgress();
+        renderLeaderboard();
+        lucide.createIcons();
+
+      } catch (err) {
+        document.getElementById('loading-state').classList.add('hidden');
+        document.getElementById('error-state').classList.remove('hidden');
+        document.getElementById('error-state').classList.add('flex');
+        document.getElementById('error-message').textContent = "無法讀取資料，請確認 Google 試算表已設定為「知道連結的人均可檢視」。(" + err.message + ")";
+      }
+    }
+
+    // --- 渲染函數 ---
+    function renderDropdown() {
+      const select = document.getElementById('student-select');
+      select.innerHTML = '<option value="" disabled selected>👇 點擊這裡展開名單...</option>';
+      
+      studentsData.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student.id;
+        option.textContent = `座號 ${student.id} ｜ ${student.submitted ? '✅ 已上架' : '✍️ 創作中'}`;
+        select.appendChild(option);
+      });
+      // 同步目前選取的 ID
+      if (selectedStudentId) select.value = selectedStudentId;
+    }
+
+    function renderProgress() {
+      const submittedCount = studentsData.filter(d => d.submitted).length;
+      const totalCount = studentsData.length;
+      const percentage = totalCount > 0 ? (submittedCount / totalCount) * 100 : 0;
+      
+      document.getElementById('progress-text').textContent = `${submittedCount} / ${totalCount} 本`;
+      document.getElementById('progress-bar').style.width = `${percentage}%`;
+    }
+
+    function renderLeaderboard() {
+      const container = document.getElementById('leaderboard-content');
+      
+      // 計算讚數並排序
+      const top3Works = studentsData.map(student => ({
+        ...student,
+        likes: interactions[student.id]?.likes || 0
+      }))
+      .filter(s => s.likes > 0 && s.submitted)
+      .sort((a, b) => b.likes - a.likes)
+      .slice(0, 3);
+
+      if (top3Works.length === 0) {
+        container.innerHTML = `<p class="text-slate-400 text-sm text-center py-4 bg-slate-50 rounded-2xl">目前還沒有人按讚喔<br/>趕快去賞顆愛心！</p>`;
+        return;
+      }
+
+      let html = '<ul class="space-y-3">';
+      top3Works.forEach((work, index) => {
+        const bgColors = ['bg-yellow-400', 'bg-slate-300', 'bg-amber-600'];
+        const badgeColor = bgColors[index] || 'bg-slate-200';
+        
+        html += `
+          <li onclick="handleSelectStudent('${work.id}')" class="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-slate-50 to-white border border-slate-100 shadow-sm transition-transform hover:-translate-y-1 cursor-pointer hover:border-amber-200" title="點擊前往觀看">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-white shadow-inner ${badgeColor}">
+                ${index + 1}
+              </div>
+              <span class="font-bold text-slate-700">${work.id.slice(-3)}</span>
+            </div>
+            <div class="flex items-center gap-1 text-pink-500 font-bold bg-pink-50 px-2 py-1 rounded-lg">
+              <i data-lucide="heart" class="w-4 h-4 fill-current"></i>
+              ${work.likes}
+            </div>
+          </li>
+        `;
+      });
+      html += '</ul>';
+      container.innerHTML = html;
+      lucide.createIcons({ root: container });
+    }
+
+    function renderCard() {
+      const cardEmpty = document.getElementById('card-empty-state');
+      const cardContent = document.getElementById('student-card');
+      const student = studentsData.find(s => s.id === selectedStudentId);
+
+      if (!student) {
+        cardEmpty.classList.remove('hidden');
+        cardEmpty.classList.add('flex');
+        cardContent.classList.add('hidden');
+        cardContent.classList.remove('flex');
+        return;
+      }
+
+      // 取得互動資料
+      const data = interactions[student.id] || { likes: 0, likedByMe: false, comments: [] };
+      const isMissing = !student.submitted;
+
+      // 切換顯示狀態
+      cardEmpty.classList.add('hidden');
+      cardEmpty.classList.remove('flex');
+      cardContent.classList.remove('hidden');
+      cardContent.classList.add('flex');
+
+      // 設定卡片外觀樣式
+      cardContent.className = `relative bg-white rounded-[2.5rem] p-6 md:p-10 shadow-2xl border-2 transition-all duration-500 flex flex-col ${isMissing ? 'border-slate-200 grayscale-[0.6] opacity-90' : 'border-amber-200 ring-4 ring-amber-50 ring-offset-4 group'}`;
+
+      // 組合 HTML
+      let html = `
+        ${!isMissing ? `<div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-100 to-orange-100 rounded-bl-[5rem] rounded-tr-[2.5rem] opacity-50 z-0 transition-transform group-hover:scale-110"></div>` : ''}
+        
+        <!-- 標頭資訊 -->
+        <div class="flex justify-between items-start mb-6 md:mb-8 relative z-10">
+          <div class="flex flex-col pr-2">
+            <span class="text-sm md:text-base text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center"><i data-lucide="book-open" class="w-4 h-4"></i></div> 
+              小作家座號 ${student.id}
+            </span>
+            <span class="text-3xl md:text-4xl font-black text-slate-700 mt-3 leading-tight">${student.title}</span>
+          </div>
+          
+          ${isMissing ? `
+            <div class="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-slate-100 text-slate-500 font-bold text-base shrink-0 border border-slate-200">
+              <i data-lucide="x-circle" class="w-5 h-5"></i><span>創作中</span>
+            </div>
+          ` : `
+            <div class="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-emerald-100 text-emerald-600 font-bold text-base shadow-sm shrink-0 border border-emerald-200">
+              <i data-lucide="check-circle-2" class="w-5 h-5"></i><span>已上架</span>
+            </div>
+          `}
+        </div>
+
+        <!-- 主要內容區 -->
+        <div class="flex-grow flex flex-col justify-center relative z-10 my-4">
+          ${isMissing ? `
+            <div class="h-48 md:h-64 bg-slate-50 rounded-[2rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400">
+              <span class="text-5xl md:text-6xl mb-4 grayscale opacity-50 block animate-bounce">✍️</span>
+              <span class="font-bold text-xl md:text-2xl">作者正在努力為繪本配音中...</span>
+              <span class="text-slate-400 mt-2">晚點再來看看吧！</span>
+            </div>
+          ` : `
+            <a href="${student.link}" target="_blank" rel="noopener noreferrer" class="group/btn relative h-48 md:h-64 bg-gradient-to-br from-amber-400 via-orange-400 to-rose-400 rounded-[2rem] flex flex-col items-center justify-center text-white overflow-hidden shadow-lg transition-transform active:scale-95 hover:shadow-2xl">
+              <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjIpIi8+PC9zdmc+')] opacity-30"></div>
+              <div class="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500 ease-in-out"></div>
+              
+              <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm border border-white/30 group-hover/btn:scale-110 transition-transform duration-300">
+                <i data-lucide="headphones" class="w-10 h-10 relative z-10"></i>
+              </div>
+              <span class="font-black text-2xl md:text-3xl relative z-10 tracking-widest drop-shadow-md">點擊開啟有聲繪本</span>
+              <span class="text-white/80 font-medium mt-2 flex items-center gap-1 text-sm"><i data-lucide="sparkles" class="w-4 h-4"></i> 將會在新分頁中開啟檔案</span>
+            </a>
+          `}
+        </div>
+
+        <!-- 互動條 -->
+        <div class="flex gap-4 mt-6 pt-6 border-t-2 relative z-10 border-slate-100">
+          <button onclick="handleLike()" class="flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-bold text-lg transition-all active:scale-90 ${data.likedByMe ? 'bg-pink-100 text-pink-600 shadow-inner border-2 border-pink-200' : 'bg-slate-50 text-slate-500 border-2 border-slate-100 hover:bg-pink-50 hover:text-pink-500 hover:border-pink-200'}">
+            <i data-lucide="heart" class="w-7 h-7 transition-transform ${data.likedByMe ? 'fill-current scale-110' : 'hover:scale-110'}"></i>
+            ${data.likes > 0 ? `${data.likes} 個愛心` : '給個愛心'}
+          </button>
+          
+          <button onclick="handleToggleComment()" class="flex-1 flex items-center justify-center gap-3 py-4 rounded-2xl font-bold text-lg transition-all active:scale-90 ${isCommentOpen || data.comments.length > 0 ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' : 'bg-slate-50 text-slate-500 border-2 border-slate-100 hover:bg-blue-50 hover:text-blue-500 hover:border-blue-200'}">
+            <i data-lucide="message-circle" class="w-7 h-7"></i>
+            ${data.comments.length > 0 ? `${data.comments.length} 則留言` : '寫下鼓勵'}
+          </button>
+        </div>
+
+        <!-- 展開的留言區 -->
+        ${isCommentOpen ? `
+          <div class="mt-6 pt-6 border-t-2 border-slate-100 animate-fadeIn">
             
-            // 觀看記錄的 Google Sheet 網址
-            const recordsSheetUrl = "https://docs.google.com/spreadsheets/d/1O5tl_NEi-UGBKn26A8hznXP0fJc0suhNislcjMoseq8/edit?usp=sharing";
+            <div class="flex flex-wrap gap-2 mb-4">
+              <span class="text-sm font-bold text-slate-500 flex items-center mr-2">快速鼓勵：</span>
+              ${ENCOURAGEMENTS.map(text => `
+                <button onclick="handleAddComment('${text}')" class="text-sm font-bold bg-amber-100 text-amber-700 px-3 py-2 rounded-xl hover:bg-amber-200 transition-colors active:scale-95 flex items-center gap-1 border border-amber-200">
+                  ${text.includes('🔥') ? '' : '<i data-lucide="sparkles" class="w-4 h-4"></i>'}
+                  ${text}
+                </button>
+              `).join('')}
+            </div>
 
-            const [formData, setFormData] = useState({
-                studentName: '', // 新增學生姓名
-                protagonist: '',
-                theme: '',
-                lyric1_action: '',
-                lyric2_fear: '',
-                lyric3_try: '',
-                style_use: '兒童有聲繪本',
-                style_emotion: '',
-                style_tempo: '',
-                style_voice: '',
-                rating: 0,
-                reflection: ''
-            });
+            <form onsubmit="handleSubmitComment(event)" class="relative flex items-center mb-6">
+              <input type="text" id="comment-input" oninput="handleInputChange(this)" placeholder="寫點鼓勵的話... (限50字內)" maxlength="50" class="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl py-3 pl-4 pr-14 text-base focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 transition-all font-medium text-slate-700" />
+              <button type="submit" id="comment-submit-btn" disabled class="absolute right-2 p-2 text-blue-500 hover:bg-blue-100 rounded-xl disabled:opacity-30 disabled:hover:bg-transparent transition-colors opacity-30">
+                <i data-lucide="send" class="w-5 h-5"></i>
+              </button>
+            </form>
 
-            const [generatedPrompt, setGeneratedPrompt] = useState('');
-            const [isCopied, setIsCopied] = useState(false);
-            const [isTemplateCopied, setIsTemplateCopied] = useState(false);
-
-            // 初始化時讀取 LocalStorage 中的 Google Script URL (如果有舊設定則覆蓋預設值)
-            useEffect(() => {
-                const savedUrl = localStorage.getItem('suno_google_script_url');
-                if (savedUrl) {
-                    setGoogleScriptUrl(savedUrl);
-                }
-            }, []);
-
-            // 儲存 URL 到 LocalStorage
-            const handleSaveSettings = () => {
-                localStorage.setItem('suno_google_script_url', googleScriptUrl);
-                setShowSettings(false);
-                alert('設定已儲存！');
-            };
-
-            // 預設選項資料
-            const themes = ['勇敢', '嘗試', '不害怕', '一起完成', '友誼', '分享'];
-            const emotions = [
-                { label: '溫暖', icon: <Sun size={24} />, color: 'bg-yellow-400' },
-                { label: '充滿希望', icon: <Sparkles size={24} />, color: 'bg-sky-400' },
-                { label: '勇敢冒險', icon: <div className="text-2xl">🐾</div>, color: 'bg-orange-400' }
-            ];
-            const tempos = [
-                { label: '慢慢走 (90 BPM)', desc: '像散步一樣', icon: <div className="text-2xl">🚶</div> },
-                { label: '輕快小跑 (110 BPM)', desc: '開心的感覺', icon: <div className="text-2xl">🏃</div> }
-            ];
-            const voices = [
-                { label: '溫柔女聲', desc: '像媽媽說故事', icon: <Mic size={24} /> },
-                { label: '溫柔男聲', desc: '像爸爸說故事', icon: <Mic size={24} /> },
-                { label: '活潑童聲', desc: '像小朋友唱歌', icon: <Smile size={24} /> }
-            ];
-
-            // 進階模版內容
-            const advancedTemplate = `Style: [整體風格，例如 Emotional Mandarin Ballad, 88-92 BPM, A minor]  
-Mood: [氛圍描述，例如 melancholic, reflective, intimate, sentimental]  
-Vocal: [歌手音色，例如 husky female solo, mid-low register, warm tone]  
-Instruments: [主要樂器，例如 soft piano, gentle strings, acoustic guitar, brush drums]  
-
-[Verse 1 – (歌手音色、音域、唱法、伴奏編排)]  
-(在這裡放 Verse 1 的歌詞)
-
-[Pre-Chorus – (歌手音色、情緒走向、伴奏編排)]  
-(在這裡放 Pre-Chorus 的歌詞)
-
-[Chorus – (歌手音色、唱腔強度、伴奏層次)]  
-(在這裡放 Chorus 的歌詞)
-
-[Verse 2 – (歌手音色、音域、唱法、伴奏編排)]  
-(在這裡放 Verse 2 的歌詞)
-
-[Pre-Chorus – (歌手音色、情緒走向、伴奏編排)]  
-(在這裡放 Pre-Chorus 的歌詞)
-
-[Chorus – (歌手音色、唱腔強度、伴奏層次)]  
-(在這裡放 Chorus 的歌詞)
-
-[Bridge – (歌手音色、情感張力、伴奏強度)]  
-(在這裡放 Bridge 的歌詞)
-
-[Chorus – (歌手音色、唱腔強度、伴奏層次)]  
-(在這裡放重複 Chorus 的歌詞)
-
-[Outro – (歌手音色、氛圍、收尾伴奏方式)]  
-(在這裡放 Outro 的歌詞)`;
-
-            // 組合最終提示詞
-            useEffect(() => {
-                if (step === 4) {
-                const prompt = `
-[Style Description]
-Genre: Children's Music, Acoustic Folk
-Mood: ${formData.style_emotion}
-Tempo: ${formData.style_tempo.split('(')[0]}
-Vocals: ${formData.style_voice}, Warm, Clear
-Instruments: Acoustic Guitar, Light Percussion
-
-[Lyrics]
-(Verse 1)
-我是 ${formData.protagonist || '主角'}
-我可以 ${formData.lyric1_action || '做些什麼'}
-雖然有時候會害怕 ${formData.lyric2_fear || '困難'}
-但我願意試試看 ${formData.lyric3_try || '挑戰'}
-
-(Chorus)
-這是一個關於 ${formData.theme} 的故事
-我們一起大步向前走
-`.trim();
-                setGeneratedPrompt(prompt);
-                }
-            }, [step, formData]);
-
-            const handleNext = () => setStep((prev) => Math.min(prev + 1, 5));
-            const handleBack = () => setStep((prev) => Math.max(prev - 1, 0));
-
-            const updateForm = (key, value) => {
-                setFormData((prev) => ({ ...prev, [key]: value }));
-            };
-
-            const copyText = (text, setCopiedState) => {
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.left = "-9999px";
-                textArea.style.top = "0";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                try {
-                    const successful = document.execCommand('copy');
-                    if (successful) {
-                        setCopiedState(true);
-                        setTimeout(() => setCopiedState(false), 2000);
-                    }
-                } catch (err) {
-                    console.error('複製失敗:', err);
-                }
-                document.body.removeChild(textArea);
-            };
-
-            // 處理繳交作業
-            const handleSubmitHomework = () => {
-                if (!googleScriptUrl) {
-                    alert('老師還沒設定雲端紀錄的網址喔！請聯繫老師。');
-                    return;
-                }
-                if (!formData.studentName) {
-                    alert('請先填寫你的名字！');
-                    setStep(1); // 跳回第一步
-                    return;
-                }
-
-                setSubmitStatus('submitting');
-
-                // 準備傳送的資料
-                const payload = {
-                    ...formData,
-                    generatedPrompt: generatedPrompt
-                };
-
-                // 使用 fetch 發送 POST 請求
-                // 注意：使用 mode: 'no-cors' 是為了避免跨域錯誤，但缺點是無法讀取回傳值
-                // 我們假設只要發送成功就是成功
-                fetch(googleScriptUrl, {
-                    method: 'POST',
-                    mode: 'no-cors', 
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8', // 重要：避免 Preflight
-                    },
-                    body: JSON.stringify(payload)
-                })
-                .then(() => {
-                    setSubmitStatus('success');
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    setSubmitStatus('error');
-                });
-            };
-
-            // 元件：AI 小提醒卡片
-            const AiTipCard = ({ title, text, color = "bg-purple-100" }) => (
-                <div className={`mt-6 md:mt-10 p-5 md:p-8 rounded-3xl border-l-8 border-purple-500 ${color} shadow-sm flex items-start gap-4`}>
-                <div className="bg-white p-3 rounded-full shadow-sm text-purple-600 shrink-0">
-                    <Sparkles size={28} className="md:w-10 md:h-10" />
+            <div class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+              ${data.comments.length === 0 ? `
+                <p class="text-center text-slate-400 text-base py-6 font-medium">快來成為第一個留下鼓勵的人吧！✏️</p>
+              ` : data.comments.map(comment => `
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+                  <div class="flex justify-between items-center border-b border-slate-50 pb-2">
+                    <span class="font-bold text-slate-700 text-sm flex items-center gap-2">
+                      <div class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs">👤</div>
+                      ${comment.author}
+                    </span>
+                    <span class="text-xs text-slate-400 font-medium">${comment.timestamp}</span>
+                  </div>
+                  <p class="text-slate-600 break-words text-base leading-relaxed">${comment.text}</p>
                 </div>
-                <div>
-                    <h4 className="font-bold text-purple-900 text-xl md:text-3xl mb-2">✨ {title}</h4>
-                    <p className="text-purple-800 text-lg md:text-2xl leading-relaxed">{text}</p>
-                </div>
-                </div>
-            );
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      `;
 
-            // 元件：進度條
-            const ProgressBar = () => (
-                <div className="flex justify-between items-center mb-8 md:mb-12 px-2 md:px-8">
-                {[1, 2, 3, 4, 5].map((num) => (
-                    <div key={num} className="flex flex-col items-center relative">
-                    <div 
-                        className={`w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center font-black text-xl md:text-3xl border-4 md:border-[6px] transition-all duration-300 z-10
-                        ${step >= num ? 'bg-yellow-400 border-orange-500 text-orange-900 scale-110 shadow-lg' : 'bg-white border-gray-200 text-gray-300'}`}
-                    >
-                        {num}
-                    </div>
-                    {num < 5 && (
-                        <div className={`absolute left-12 md:left-20 top-1/2 -translate-y-1/2 w-[calc(100vw/6)] md:w-[calc(100vw/8)] h-3 md:h-4 transition-all duration-500
-                        ${step > num ? 'bg-yellow-400' : 'bg-gray-100'}`} 
-                        />
-                    )}
-                    </div>
-                ))}
-                </div>
-            );
+      cardContent.innerHTML = html;
+      lucide.createIcons({ root: cardContent }); // 重新渲染剛產生的 Icon
+    }
 
-            // 步驟內容渲染
-            const renderStep = () => {
-                switch (step) {
-                case 0: // 歡迎頁
-                    return (
-                    <div className="text-center py-10 md:py-20 flex flex-col items-center animate-fadeIn">
-                        {/* 設定按鈕 (僅首頁顯示) */}
-                        <div className="absolute top-0 right-0 p-4">
-                            <button 
-                                onClick={() => setShowSettings(true)}
-                                className="text-orange-300 hover:text-orange-500 transition-colors p-2"
-                                title="老師專用設定"
-                            >
-                                <Settings className="w-8 h-8 md:w-10 md:h-10" />
-                            </button>
-                        </div>
+    // --- 互動事件處理 ---
+    window.handleSelectChange = function(event) {
+      selectedStudentId = event.target.value;
+      isCommentOpen = false; // 切換學生時關閉留言板
+      renderCard();
+    };
 
-                        <div className="w-40 h-40 md:w-64 md:h-64 bg-yellow-300 rounded-full flex items-center justify-center mb-8 md:mb-12 border-4 md:border-8 border-orange-400 shadow-[6px_6px_0px_rgba(251,146,60,0.5)] md:shadow-[10px_10px_0px_rgba(251,146,60,0.5)] transform -rotate-3 hover:rotate-3 transition-transform duration-500">
-                            <Music className="w-20 h-20 md:w-32 md:h-32 text-orange-600" />
-                        </div>
-                        <h1 className="text-5xl md:text-8xl font-black text-indigo-900 mb-8 tracking-wide drop-shadow-sm">
-                        繪本音樂魔法師
-                        </h1>
-                        <p className="text-2xl md:text-4xl text-indigo-600 font-bold mb-12 md:mb-20">
-                        用 AI 幫你的故事做一首主題曲！
-                        </p>
-                        
-                        <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-xl border-4 md:border-8 border-indigo-100 max-w-lg md:max-w-4xl mx-auto transform rotate-1 mb-12 md:mb-20 hover:scale-105 transition-transform">
-                        <p className="text-xl md:text-4xl font-bold text-indigo-800 leading-relaxed">
-                            「故事是你想的，<br/>音樂是你選的，<br/>AI 只是幫你完成。」
-                        </p>
-                        </div>
+    window.handleSelectStudent = function(id) {
+      selectedStudentId = id;
+      isCommentOpen = false;
+      document.getElementById('student-select').value = id; // 同步下拉選單
+      renderCard();
+      // 畫面平滑捲動到卡片位置
+      document.getElementById('student-select').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
 
-                        <button 
-                        onClick={handleNext}
-                        className="group bg-green-500 hover:bg-green-400 text-white text-3xl md:text-5xl font-black py-6 px-16 md:py-10 md:px-24 rounded-full shadow-[0_8px_0_rgb(21,128,61)] md:shadow-[0_12px_0_rgb(21,128,61)] active:shadow-[0_2px_0_rgb(21,128,61)] active:translate-y-1 transition-all flex items-center gap-6"
-                        >
-                        開始冒險 <ArrowRight className="w-8 h-8 md:w-12 md:h-12 group-hover:translate-x-3 transition-transform"/>
-                        </button>
-                    </div>
-                    );
+    window.handleLike = function() {
+      if (!selectedStudentId) return;
+      
+      const current = interactions[selectedStudentId] || { likes: 0, likedByMe: false, comments: [] };
+      const newLikedStatus = !current.likedByMe;
+      const newLikesCount = newLikedStatus ? current.likes + 1 : Math.max(0, current.likes - 1);
+      
+      interactions[selectedStudentId] = { ...current, likedByMe: newLikedStatus, likes: newLikesCount };
+      saveInteractions();
+      
+      renderCard();
+      renderLeaderboard();
+    };
 
-                case 1: // Step 1: 故事構想
-                    return (
-                    <div className="animate-slideUp">
-                        <h2 className="text-4xl md:text-6xl font-black text-indigo-900 mb-10 md:mb-16 flex items-center gap-6">
-                        <span className="bg-orange-400 text-white w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-4xl shadow-md">1</span>
-                        故事在說什麼？
-                        </h2>
-                        
-                        <div className="bg-white p-8 md:p-16 rounded-[2.5rem] border-4 md:border-8 border-orange-200 shadow-xl space-y-10 md:space-y-16">
-                        
-                        {/* 新增：學生姓名輸入 */}
-                        <div className="bg-orange-50 p-8 md:p-10 rounded-[2rem] border-4 md:border-4 border-orange-200">
-                             <label className="block text-indigo-800 font-bold mb-4 text-2xl md:text-3xl flex items-center gap-4">
-                                <User className="w-8 h-8 md:w-10 md:h-10 text-orange-500"/> 我是誰（姓名）：
-                             </label>
-                             <input 
-                                type="text" 
-                                value={formData.studentName}
-                                onChange={(e) => updateForm('studentName', e.target.value)}
-                                placeholder="請輸入你的名字或暱稱"
-                                className="w-full p-5 md:p-7 text-2xl md:text-3xl bg-white border-4 md:border-4 border-orange-300 rounded-3xl focus:outline-none focus:border-orange-500 text-indigo-900 shadow-inner"
-                            />
-                        </div>
+    window.handleToggleComment = function() {
+      isCommentOpen = !isCommentOpen;
+      renderCard();
+      
+      // 開啟時自動對焦輸入框
+      if (isCommentOpen) {
+        setTimeout(() => {
+          const input = document.getElementById('comment-input');
+          if (input) input.focus();
+        }, 100);
+      }
+    };
 
-                        <div>
-                            <label className="block text-indigo-800 font-bold mb-4 text-2xl md:text-3xl">我的繪本主角是：</label>
-                            <input 
-                            type="text" 
-                            value={formData.protagonist}
-                            onChange={(e) => updateForm('protagonist', e.target.value)}
-                            placeholder="例如：勇敢的小熊、迷路的星星..."
-                            className="w-full p-5 md:p-7 text-2xl md:text-3xl bg-orange-50 border-4 md:border-4 border-orange-300 rounded-3xl focus:outline-none focus:border-orange-500 text-indigo-900 placeholder-orange-300 shadow-inner"
-                            />
-                        </div>
+    window.handleAddComment = function(text) {
+      if (!text.trim() || !selectedStudentId) return;
+      
+      const current = interactions[selectedStudentId] || { likes: 0, likedByMe: false, comments: [] };
+      const newComment = {
+        id: Date.now().toString(),
+        author: generateNickname(),
+        text: text,
+        timestamp: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      interactions[selectedStudentId] = {
+        ...current,
+        comments: [newComment, ...current.comments]
+      };
+      saveInteractions();
+      renderCard();
+    };
 
-                        <div>
-                            <label className="block text-indigo-800 font-bold mb-6 text-2xl md:text-3xl">這個故事想告訴大家：</label>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-                            {themes.map(theme => (
-                                <button
-                                key={theme}
-                                onClick={() => updateForm('theme', theme)}
-                                className={`p-6 md:p-8 rounded-3xl border-4 md:border-4 font-bold transition-all text-left flex items-center gap-4 text-xl md:text-2xl
-                                    ${formData.theme === theme 
-                                    ? 'bg-yellow-100 border-orange-500 text-orange-700 shadow-md transform scale-105' 
-                                    : 'bg-white border-gray-200 text-gray-500 hover:border-orange-300 hover:bg-orange-50'}`}
-                                >
-                                <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full border-4 md:border-4 flex items-center justify-center shrink-0 ${formData.theme === theme ? 'border-orange-500' : 'border-gray-300'}`}>
-                                    {formData.theme === theme && <div className="w-4 h-4 md:w-6 md:h-6 bg-orange-500 rounded-full" />}
-                                </div>
-                                {theme}
-                                </button>
-                            ))}
-                            </div>
-                        </div>
-                        </div>
+    window.handleSubmitComment = function(event) {
+      event.preventDefault();
+      const input = document.getElementById('comment-input');
+      if (input && input.value) {
+        window.handleAddComment(input.value);
+      }
+    };
 
-                        <AiTipCard 
-                        title="重點觀念" 
-                        text="AI 不會幫你想故事，故事要先在你心裡。你是導演，AI 是你的攝影師。" 
-                        />
-                    </div>
-                    );
+    window.handleInputChange = function(input) {
+      const btn = document.getElementById('comment-submit-btn');
+      if (input.value.trim().length > 0) {
+        btn.removeAttribute('disabled');
+        btn.classList.remove('opacity-30');
+      } else {
+        btn.setAttribute('disabled', 'true');
+        btn.classList.add('opacity-30');
+      }
+    };
 
-                case 2: // Step 2: 歌詞整理
-                    return (
-                    <div className="animate-slideUp">
-                        <h2 className="text-4xl md:text-6xl font-black text-indigo-900 mb-10 md:mb-16 flex items-center gap-6">
-                        <span className="bg-green-400 text-white w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-4xl shadow-md">2</span>
-                        把故事變歌詞
-                        </h2>
-
-                        <div className="bg-white p-8 md:p-16 rounded-[2.5rem] border-4 md:border-8 border-green-200 shadow-xl space-y-8 md:space-y-12">
-                        <p className="text-indigo-600 font-bold mb-6 text-xl md:text-3xl">請完成這三句最重要的話：</p>
-                        
-                        <div className="space-y-6 md:space-y-8">
-                            <div className="flex flex-col md:flex-row md:items-center gap-4 bg-green-50 p-6 md:p-8 rounded-3xl border-4 md:border-4 border-green-200">
-                            <span className="font-bold text-green-800 text-2xl md:text-3xl whitespace-nowrap min-w-[160px]">我可以</span>
-                            <input 
-                                type="text" 
-                                value={formData.lyric1_action}
-                                onChange={(e) => updateForm('lyric1_action', e.target.value)}
-                                placeholder="飛過高山 / 幫助朋友..."
-                                className="flex-1 p-4 md:p-6 text-xl md:text-2xl bg-white rounded-2xl border-4 md:border-4 border-green-300 focus:border-green-500 focus:outline-none"
-                            />
-                            </div>
-
-                            <div className="flex flex-col md:flex-row md:items-center gap-4 bg-green-50 p-6 md:p-8 rounded-3xl border-4 md:border-4 border-green-200">
-                            <span className="font-bold text-green-800 text-2xl md:text-3xl whitespace-nowrap min-w-[160px]">我不害怕</span>
-                            <input 
-                                type="text" 
-                                value={formData.lyric2_fear}
-                                onChange={(e) => updateForm('lyric2_fear', e.target.value)}
-                                placeholder="黑暗 / 失敗 / 一個人..."
-                                className="flex-1 p-4 md:p-6 text-xl md:text-2xl bg-white rounded-2xl border-4 md:border-4 border-green-300 focus:border-green-500 focus:outline-none"
-                            />
-                            </div>
-
-                            <div className="flex flex-col md:flex-row md:items-center gap-4 bg-green-50 p-6 md:p-8 rounded-3xl border-4 md:border-4 border-green-200">
-                            <span className="font-bold text-green-800 text-2xl md:text-3xl whitespace-nowrap min-w-[160px]">我願意試試看</span>
-                            <input 
-                                type="text" 
-                                value={formData.lyric3_try}
-                                onChange={(e) => updateForm('lyric3_try', e.target.value)}
-                                placeholder="打開大門 / 說聲嗨..."
-                                className="flex-1 p-4 md:p-6 text-xl md:text-2xl bg-white rounded-2xl border-4 md:border-4 border-green-300 focus:border-green-500 focus:outline-none"
-                            />
-                            </div>
-                        </div>
-                        </div>
-
-                        <AiTipCard 
-                        title="重點觀念" 
-                        text="歌詞是故事的「精華版」。不用把整本繪本寫進去，只要寫出最重要的感覺！"
-                        color="bg-green-100 border-green-500 text-green-900" 
-                        />
-                    </div>
-                    );
-
-                case 3: // Step 3: 風格設定
-                    return (
-                    <div className="animate-slideUp">
-                        <h2 className="text-4xl md:text-6xl font-black text-indigo-900 mb-10 md:mb-16 flex items-center gap-6">
-                        <span className="bg-sky-400 text-white w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-4xl shadow-md">3</span>
-                        決定音樂風格
-                        </h2>
-
-                        <div className="space-y-8 md:space-y-12">
-                        {/* 情緒 */}
-                        <div className="bg-white p-8 md:p-14 rounded-[2.5rem] border-4 md:border-8 border-sky-100">
-                            <h3 className="text-2xl md:text-4xl font-bold text-indigo-800 mb-8 flex items-center gap-4"><Heart className="text-pink-500 w-10 h-10 md:w-12 md:h-12"/> 聽起來的感覺...</h3>
-                            <div className="grid grid-cols-3 gap-6 md:gap-10">
-                            {emotions.map(emotion => (
-                                <button
-                                key={emotion.label}
-                                onClick={() => updateForm('style_emotion', emotion.label)}
-                                className={`p-6 md:p-10 rounded-[2rem] flex flex-col items-center gap-4 transition-all
-                                    ${formData.style_emotion === emotion.label 
-                                    ? `${emotion.color} text-white shadow-xl transform scale-110` 
-                                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:scale-105'}`}
-                                >
-                                <div className="scale-150 md:scale-[2.5] mb-3">{emotion.icon}</div>
-                                <span className="font-bold text-lg md:text-2xl mt-3">{emotion.label}</span>
-                                </button>
-                            ))}
-                            </div>
-                        </div>
-
-                        {/* 節奏與聲音 */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-                            <div className="bg-white p-8 md:p-14 rounded-[2.5rem] border-4 md:border-8 border-sky-100 h-full">
-                            <h3 className="text-2xl md:text-4xl font-bold text-indigo-800 mb-8 flex items-center gap-4"><div className="text-3xl md:text-5xl">🥁</div> 速度</h3>
-                            <div className="space-y-6">
-                                {tempos.map(tempo => (
-                                <button
-                                    key={tempo.label}
-                                    onClick={() => updateForm('style_tempo', tempo.label)}
-                                    className={`w-full p-6 md:p-8 rounded-3xl text-left flex items-center gap-6 border-4 md:border-4 transition-all
-                                    ${formData.style_tempo === tempo.label ? 'border-sky-400 bg-sky-50 text-sky-800 shadow-md' : 'border-transparent hover:bg-gray-50'}`}
-                                >
-                                    <div className="scale-[2.0]">{tempo.icon}</div>
-                                    <div>
-                                        <div className="text-xl md:text-2xl font-bold mb-1">{tempo.label}</div>
-                                        <div className="text-sm md:text-lg opacity-80 font-medium">{tempo.desc}</div>
-                                    </div>
-                                </button>
-                                ))}
-                            </div>
-                            </div>
-
-                            <div className="bg-white p-8 md:p-14 rounded-[2.5rem] border-4 md:border-8 border-sky-100 h-full">
-                            <h3 className="text-2xl md:text-4xl font-bold text-indigo-800 mb-8 flex items-center gap-4"><Mic className="text-purple-500 w-10 h-10 md:w-12 md:h-12"/> 聲音</h3>
-                            <div className="space-y-6">
-                                {voices.map(voice => (
-                                <button
-                                    key={voice.label}
-                                    onClick={() => updateForm('style_voice', voice.label)}
-                                    className={`w-full p-6 md:p-8 rounded-3xl text-left flex items-center gap-6 border-4 md:border-4 transition-all
-                                    ${formData.style_voice === voice.label ? 'border-sky-400 bg-sky-50 text-sky-800 shadow-md' : 'border-transparent hover:bg-gray-50'}`}
-                                >
-                                    <span className="text-sky-500 scale-[1.5]">{voice.icon}</span> 
-                                    <div>
-                                        <div className="text-xl md:text-2xl font-bold mb-1">{voice.label}</div>
-                                        <div className="text-sm md:text-lg opacity-80 font-medium">{voice.desc}</div>
-                                    </div>
-                                </button>
-                                ))}
-                            </div>
-                            </div>
-                        </div>
-                        </div>
-
-                        <AiTipCard 
-                        title="重點觀念" 
-                        text="你在「告訴 AI 怎麼幫你」，指令越清楚，AI 就不會亂猜喔！"
-                        color="bg-sky-100 border-sky-500 text-sky-900" 
-                        />
-                    </div>
-                    );
-
-                case 4: // Step 4: 產生
-                    return (
-                    <div className="animate-slideUp">
-                        <h2 className="text-4xl md:text-6xl font-black text-indigo-900 mb-10 md:mb-16 flex items-center gap-6">
-                        <span className="bg-pink-400 text-white w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-4xl shadow-md">4</span>
-                        變出魔法咒語
-                        </h2>
-
-                        <div className="bg-indigo-900 p-8 md:p-14 rounded-[2.5rem] shadow-2xl relative overflow-hidden group mb-8 md:mb-12 border-4 md:border-8 border-indigo-800">
-                        <div className="absolute top-0 right-0 w-64 h-64 md:w-80 md:h-80 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/2" />
-                        
-                        <h3 className="text-white text-2xl md:text-4xl font-bold mb-6 flex items-center gap-4">
-                            <Sparkles className="text-yellow-300 w-10 h-10 md:w-12 md:h-12" /> 這是你的 Suno 提示詞
-                        </h3>
-                        
-                        <div className="bg-indigo-800/50 p-6 md:p-10 rounded-3xl border-4 border-indigo-600 font-mono text-lg md:text-xl text-indigo-100 mb-8 whitespace-pre-wrap h-80 md:h-[30rem] overflow-y-auto custom-scrollbar shadow-inner leading-relaxed">
-                            {generatedPrompt}
-                        </div>
-
-                        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
-                            <button 
-                            onClick={() => copyText(generatedPrompt, setIsCopied)}
-                            className="flex-1 bg-yellow-400 hover:bg-yellow-300 text-indigo-900 text-xl md:text-3xl font-black py-6 md:py-8 px-8 rounded-3xl shadow-[0_6px_0_rgb(202,138,4)] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-4"
-                            >
-                            {isCopied ? <CheckCircle size={36}/> : <Copy size={36}/>}
-                            {isCopied ? '複製成功！' : '複製咒語 (提示詞)'}
-                            </button>
-                            
-                            <a 
-                            href="https://suno.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex-1 bg-white hover:bg-gray-50 text-indigo-900 text-xl md:text-3xl font-black py-6 md:py-8 px-8 rounded-3xl shadow-[0_6px_0_rgb(203,213,225)] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-4 border-4 border-indigo-100"
-                            >
-                            前往 Suno <ArrowRight size={36}/>
-                            </a>
-
-                            {/* 新增：前往 ChatGPT 按鈕 */}
-                            <a 
-                            href="https://chatgpt.com/" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex-1 bg-white hover:bg-gray-50 text-indigo-900 text-xl md:text-3xl font-black py-6 md:py-8 px-8 rounded-3xl shadow-[0_6px_0_rgb(203,213,225)] active:shadow-none active:translate-y-1 transition-all flex items-center justify-center gap-4 border-4 border-indigo-100"
-                            >
-                            前往 ChatGPT <Bot size={36}/>
-                            </a>
-                        </div>
-                        </div>
-
-                        {/* 進階技巧按鈕 */}
-                        <button 
-                        onClick={() => setShowTips(true)}
-                        className="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold py-6 md:py-8 px-8 rounded-3xl flex items-center justify-center gap-4 transition-colors border-4 md:border-4 border-indigo-200 dashed text-xl md:text-2xl"
-                        >
-                        <Info size={32} />
-                        不想只用簡單版？點我看「進階秘籍」
-                        </button>
-
-                        <AiTipCard 
-                        title="重點觀念" 
-                        text="AI 是創作夥伴，不是代勞者。複製前先檢查一下，這是你想要的意思嗎？"
-                        color="bg-pink-100 border-pink-500 text-pink-900" 
-                        />
-                    </div>
-                    );
-
-                case 5: // Step 5: 反思
-                    return (
-                    <div className="animate-slideUp">
-                        <h2 className="text-4xl md:text-6xl font-black text-indigo-900 mb-10 md:mb-16 flex items-center gap-6">
-                        <span className="bg-yellow-400 text-white w-12 h-12 md:w-20 md:h-20 rounded-full flex items-center justify-center text-2xl md:text-4xl shadow-md">5</span>
-                        聽聽看與回饋
-                        </h2>
-
-                        <div className="bg-white p-8 md:p-16 rounded-[2.5rem] border-4 md:border-8 border-yellow-200 shadow-xl text-center mb-10 md:mb-16">
-                        <h3 className="text-3xl md:text-5xl font-bold text-indigo-800 mb-8 md:mb-12">這首歌做出來的感覺怎麼樣？</h3>
-                        
-                        <div className="flex justify-center gap-4 md:gap-8 mb-10 md:mb-16">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                            <button 
-                                key={star}
-                                onClick={() => updateForm('rating', star)}
-                                className="transform hover:scale-110 transition-transform focus:outline-none"
-                            >
-                                <Star 
-                                className={`w-16 h-16 md:w-24 md:h-24 ${star <= formData.rating ? "text-yellow-400 fill-current" : "text-gray-200"}`}
-                                />
-                            </button>
-                            ))}
-                        </div>
-
-                        <div className="text-left bg-yellow-50 p-8 md:p-10 rounded-[2rem] border-4 md:border-4 border-yellow-100 mb-8 md:mb-12">
-                            <label className="block text-indigo-800 font-bold mb-4 text-2xl md:text-3xl">我想調整的地方是...</label>
-                            <textarea 
-                            value={formData.reflection}
-                            onChange={(e) => updateForm('reflection', e.target.value)}
-                            placeholder="例如：希望能更輕快一點、歌詞想要改一句..."
-                            className="w-full p-6 md:p-8 bg-white rounded-3xl border-4 md:border-4 border-yellow-200 focus:border-yellow-400 focus:outline-none h-40 md:h-56 resize-none text-xl md:text-2xl"
-                            />
-                        </div>
-                        
-                        <div className="flex gap-4 md:gap-6 justify-center flex-wrap">
-                            <span className="px-6 py-3 md:px-8 md:py-4 bg-green-100 text-green-700 rounded-full text-lg md:text-xl font-bold">#很像故事</span>
-                            <span className="px-6 py-3 md:px-8 md:py-4 bg-orange-100 text-orange-700 rounded-full text-lg md:text-xl font-bold">#很溫暖</span>
-                            <span className="px-6 py-3 md:px-8 md:py-4 bg-purple-100 text-purple-700 rounded-full text-lg md:text-xl font-bold">#還可以再改</span>
-                        </div>
-                        </div>
-
-                        {/* 新增：繳交作業區塊 */}
-                        <div className="flex flex-col items-center gap-8 max-w-4xl mx-auto">
-                            {submitStatus === 'idle' && (
-                                <button 
-                                    onClick={handleSubmitHomework}
-                                    className="w-full bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white text-3xl md:text-5xl font-black py-8 px-12 rounded-[2rem] shadow-lg transform transition-transform active:scale-95 flex items-center justify-center gap-6"
-                                >
-                                    <UploadCloud size={40} className="md:w-12 md:h-12" />
-                                    繳交學習單給老師
-                                </button>
-                            )}
-
-                            {submitStatus === 'submitting' && (
-                                <div className="text-indigo-600 font-bold flex items-center gap-4 animate-pulse text-2xl md:text-3xl">
-                                    <div className="w-8 h-8 md:w-10 md:h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                                    正在傳送資料...
-                                </div>
-                            )}
-
-                            {submitStatus === 'success' && (
-                                <div className="w-full bg-green-100 border-4 border-green-400 text-green-800 p-8 rounded-[2rem] font-bold flex items-center justify-center gap-4 animate-bounce text-2xl md:text-3xl">
-                                    <CheckCircle size={40} />
-                                    繳交成功！你太棒了！
-                                </div>
-                            )}
-
-                             {submitStatus === 'error' && (
-                                <div className="w-full bg-red-100 border-4 border-red-400 text-red-800 p-8 rounded-[2rem] font-bold flex items-center justify-center gap-4 text-2xl md:text-3xl">
-                                    <X size={40} />
-                                    繳交失敗，請檢查網路或通知老師。
-                                </div>
-                            )}
-
-                            {/* 新增：觀看記錄按鈕 */}
-                            <a 
-                                href={recordsSheetUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="w-full bg-white border-4 md:border-[6px] border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 font-bold py-6 px-12 rounded-[2rem] flex items-center justify-center gap-6 transition-all transform hover:scale-105 text-2xl md:text-3xl"
-                            >
-                                <Table size={40} />
-                                觀看創作記錄
-                            </a>
-                        </div>
-
-                        <AiTipCard 
-                        title="重點觀念" 
-                        text="創作可以反覆修正，AI 也要被「教」。覺得不好聽沒關係，調整指令再試一次！"
-                        color="bg-yellow-100 border-yellow-500 text-yellow-900" 
-                        />
-
-                        <div className="mt-16 text-center">
-                            <button 
-                            onClick={() => {
-                                setStep(0);
-                                setSubmitStatus('idle');
-                            }}
-                            className="text-indigo-400 font-bold hover:text-indigo-600 underline text-xl md:text-2xl"
-                            >
-                            再做一首新歌
-                            </button>
-                        </div>
-                    </div>
-                    );
-                default:
-                    return null;
-                }
-            };
-
-            return (
-                <div className="min-h-screen bg-orange-50 font-sans selection:bg-yellow-200 selection:text-orange-900 pb-12 relative text-xl">
-                {/* 頂部裝飾 */}
-                <div className="h-6 md:h-8 bg-gradient-to-r from-green-400 via-yellow-400 to-orange-400"></div>
-                
-                <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-16">
-                    {step > 0 && <ProgressBar />}
-
-                    {/* 主內容區塊 */}
-                    <div className="relative">
-                    {renderStep()}
-                    </div>
-
-                    {/* 底部導航 */}
-                    {step > 0 && (
-                    <div className="flex justify-between mt-10 md:mt-20 animate-fadeIn">
-                        <button 
-                        onClick={handleBack}
-                        className="px-8 py-6 md:px-12 md:py-8 rounded-[2rem] font-bold text-gray-500 hover:bg-gray-200 transition-colors flex items-center gap-4 text-2xl md:text-3xl"
-                        >
-                        <ArrowLeft size={32} className="md:w-10 md:h-10"/> 上一步
-                        </button>
-                        
-                        {step < 5 ? (
-                        <button 
-                            onClick={handleNext}
-                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-6 px-12 md:py-8 md:px-20 rounded-[2rem] shadow-[0_4px_0_rgb(55,48,163)] active:shadow-none active:translate-y-1 transition-all flex items-center gap-4 text-2xl md:text-3xl"
-                        >
-                            下一步 <ArrowRight size={32} className="md:w-10 md:h-10"/>
-                        </button>
-                        ) : (
-                        <div />
-                        )}
-                    </div>
-                    )}
-                </div>
-
-                {/* 底部版權 */}
-                <div className="text-center text-indigo-200 text-lg md:text-xl mt-16 md:mt-24 font-bold pb-8">
-                    © 2024 兒童繪本音樂工作坊<br/>
-                    臺北市立陽明高中國中部 陳政川老師設計
-                </div>
-
-                {/* Settings Modal (老師設定) */}
-                {showSettings && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-                        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border-4 border-indigo-200">
-                             <div className="bg-indigo-600 p-4 text-white font-bold text-lg flex justify-between items-center">
-                                <span className="flex items-center gap-2"><Settings className="text-yellow-300"/> 老師專用設定</span>
-                                <button onClick={() => setShowSettings(false)}><X/></button>
-                             </div>
-                             <div className="p-6">
-                                <label className="block text-indigo-800 font-bold mb-2">Google Apps Script 網址 (用於接收作業)</label>
-                                <input 
-                                    type="text" 
-                                    value={googleScriptUrl}
-                                    onChange={(e) => setGoogleScriptUrl(e.target.value)}
-                                    placeholder="https://script.google.com/macros/s/..."
-                                    className="w-full p-3 bg-gray-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-500 focus:outline-none mb-4 text-sm break-all"
-                                />
-                                <div className="text-xs text-gray-500 mb-6 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                                    <p className="font-bold mb-1">如何取得網址？</p>
-                                    1. 在 Google Sheet 擴充功能 > Apps Script 貼上程式碼<br/>
-                                    2. 部署 > 新增部署作業 > 類型：網頁應用程式<br/>
-                                    3. 誰可以存取：<strong>任何人 (Anyone)</strong> <br/>
-                                    4. 複製產生的網址貼上至此
-                                </div>
-                                <button 
-                                    onClick={handleSaveSettings}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl flex justify-center gap-2"
-                                >
-                                    <Save size={20}/> 儲存設定
-                                </button>
-                             </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* 進階技巧 Modal */}
-                {showTips && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-[2rem] w-full max-w-4xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden border-4 border-indigo-200">
-                        {/* Header */}
-                        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 flex justify-between items-center shrink-0">
-                        <h3 className="text-white font-bold text-2xl md:text-3xl flex items-center gap-4">
-                            <FileText className="text-yellow-300 w-10 h-10" /> 使用 Suno AI 生成音樂小技巧
-                        </h3>
-                        <button onClick={() => setShowTips(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-full p-3 transition-colors">
-                            <X size={32} />
-                        </button>
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="p-10 overflow-y-auto custom-scrollbar">
-                        <div className="bg-blue-50 border-l-8 border-blue-500 p-8 mb-10 rounded-r-3xl">
-                            <p className="text-blue-900 font-bold text-2xl">覺得這樣比較好聽？</p>
-                            <p className="text-blue-800 text-xl mt-3">
-                            可以請 ChatGPT 幫你設計！將下面的指令分成三個步驟告訴它：
-                            </p>
-                        </div>
-
-                        <div className="space-y-10 text-gray-700">
-                            <div>
-                            <h4 className="font-bold text-indigo-700 text-2xl mb-4 flex items-center gap-4">
-                                <span className="bg-indigo-100 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold border-2 border-indigo-200">1</span>
-                                結構分段
-                            </h4>
-                            <p className="bg-gray-50 p-6 rounded-2xl text-lg md:text-xl border-4 border-gray-200 font-medium">
-                                「幫我把這首歌的歌詞，分成 [Intro] [Verse 1] [Pre-Chorus] [Chorus] [Verse 2] [Bridge] [Outro] 七個段落來設計。」
-                            </p>
-                            </div>
-
-                            <div>
-                            <h4 className="font-bold text-indigo-700 text-2xl mb-4 flex items-center gap-4">
-                                <span className="bg-indigo-100 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold border-2 border-indigo-200">2</span>
-                                風格設定
-                            </h4>
-                            <p className="bg-gray-50 p-6 rounded-2xl text-lg md:text-xl border-4 border-gray-200 font-medium">
-                                「每個段落後面加上演唱風格說明，比如歌手音色、唱法、氛圍。風格可以融合 EDM、抒情、R&B、未來感。」
-                            </p>
-                            </div>
-
-                            <div>
-                            <h4 className="font-bold text-indigo-700 text-2xl mb-4 flex items-center gap-4">
-                                <span className="bg-indigo-100 w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold border-2 border-indigo-200">3</span>
-                                套用模版 (重點！)
-                            </h4>
-                            <p className="text-lg md:text-xl mb-4">請 ChatGPT 依照這個格式整理給你，然後你再貼去 Suno：</p>
-                            
-                            <div className="relative group">
-                                <pre className="bg-gray-800 text-gray-100 p-8 rounded-3xl text-base font-mono whitespace-pre-wrap leading-relaxed shadow-inner">
-                                {advancedTemplate}
-                                </pre>
-                                <button 
-                                onClick={() => copyText(advancedTemplate, setIsTemplateCopied)}
-                                className="absolute top-6 right-6 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-2xl text-base font-bold backdrop-blur-md transition-colors flex items-center gap-3"
-                                >
-                                {isTemplateCopied ? <CheckCircle size={20}/> : <Copy size={20}/>}
-                                {isTemplateCopied ? '已複製' : '一鍵複製模版'}
-                                </button>
-                            </div>
-                            </div>
-                        </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="p-8 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
-                        <button 
-                            onClick={() => setShowTips(false)}
-                            className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-4 px-10 rounded-2xl transition-colors text-xl"
-                        >
-                            關閉
-                        </button>
-                        </div>
-                    </div>
-                    </div>
-                )}
-                </div>
-            );
-        };
-
-        // 啟動 React App
-        const root = createRoot(document.getElementById('root'));
-        root.render(<SunoMusicBook />);
-    </script>
+    // 啟動程式
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
 </body>
 </html>
