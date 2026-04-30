@@ -130,7 +130,7 @@
       <div class="bg-white rounded-3xl p-6 shadow-xl border border-rose-100">
         <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-rose-600">
           <i data-lucide="trophy" class="w-6 h-6"></i>
-          最受歡迎 Top 3
+          最受歡迎 Top 10
         </h2>
         <div id="leaderboard-content">
           <!-- 排行榜內容由 JS 生成 -->
@@ -141,11 +141,11 @@
       <div class="bg-white rounded-3xl p-6 shadow-xl border border-cyan-100">
         <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-cyan-600">
           <i data-lucide="book-open" class="w-6 h-6"></i>
-          全館繪本數量
+          全班上架進度
         </h2>
         <div class="text-center">
           <div class="flex justify-between items-end mb-2">
-            <span class="text-sm text-slate-500 font-medium">上架</span>
+            <span class="text-sm text-slate-500 font-medium">進度條</span>
             <span id="progress-text" class="text-lg font-black text-emerald-500">
               0 / 0 本
             </span>
@@ -195,6 +195,7 @@
     let currentUserNickname = localStorage.getItem('visitor_nickname') || '';
     let selectedStudentId = '';
     let isCommentOpen = false;
+    let globalClicks = {}; // 新增：紀錄全域點擊數
 
     const ENCOURAGEMENTS = [
       "這故事超有趣🔥",
@@ -330,7 +331,7 @@
           
           studentsData.push({
             id: id,
-            title: `繪本小品 - ${id}`,
+            title: `繪本小品 - 繪本小品 ${id}`,
             link: link,
             submitted: link !== ''
           });
@@ -339,6 +340,31 @@
         document.getElementById('loading-state').classList.add('hidden');
         document.getElementById('main-content').classList.remove('hidden');
         document.getElementById('main-content').classList.add('flex');
+
+        // 新增：從紀錄總表抓取點擊次數，整合至排行榜
+        try {
+          const trackingSheetId = '15Ux7dsBPrhi8RSYd1Gqe7Jh_WQwAFS9ZQsXLYF0zzHg';
+          const trackingUrl = `https://docs.google.com/spreadsheets/d/${trackingSheetId}/export?format=csv`;
+          const trackingResponse = await fetch(trackingUrl);
+          if (trackingResponse.ok) {
+            const trackingCsvText = await trackingResponse.text();
+            const trackingRows = parseCSV(trackingCsvText);
+            // 格式: ["時間", "訪客暱稱", "動作類型", "目標繪本(座號)", "備註"]
+            for (let i = 1; i < trackingRows.length; i++) {
+              const row = trackingRows[i];
+              if (row.length >= 4) {
+                const action = row[2] || '';
+                const bookId = row[3]?.trim() || '';
+                // 若動作包含播放、點擊等關鍵字，增加該繪本點擊數
+                if (action.includes('播放') || action.includes('點擊') || action.includes('開啟')) {
+                  globalClicks[bookId] = (globalClicks[bookId] || 0) + 1;
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('無法讀取追蹤紀錄，點擊排行將使用預設值。', err);
+        }
 
         renderDropdown();
         renderProgress();
@@ -379,35 +405,47 @@
     function renderLeaderboard() {
       const container = document.getElementById('leaderboard-content');
       
-      const top3Works = studentsData.map(student => ({
+      const top10Works = studentsData.map(student => ({
         ...student,
-        likes: interactions[student.id]?.likes || 0
+        likes: interactions[student.id]?.likes || 0,
+        clicks: globalClicks[student.id] || 0
       }))
-      .filter(s => s.likes > 0 && s.submitted)
-      .sort((a, b) => b.likes - a.likes)
-      .slice(0, 3);
+      .filter(s => s.submitted) // 有上架的作品皆納入排行考慮
+      .sort((a, b) => {
+        if (b.clicks !== a.clicks) return b.clicks - a.clicks; // 優先依「點擊觀看數」排序
+        return b.likes - a.likes; // 若點擊數相同，則依「愛心數」排序
+      })
+      .slice(0, 10);
 
-      if (top3Works.length === 0) {
-        container.innerHTML = `<p class="text-slate-400 text-sm text-center py-4 bg-slate-50 rounded-2xl">目前還沒有人按讚喔<br/>趕快去賞顆愛心！</p>`;
+      if (top10Works.length === 0) {
+        container.innerHTML = `<p class="text-slate-400 text-sm text-center py-4 bg-slate-50 rounded-2xl">目前還沒有作品上架喔！</p>`;
         return;
       }
 
-      let html = '<ul class="space-y-3">';
-      top3Works.forEach((work, index) => {
+      // 加入卷軸設定，避免 Top 10 名單太長把版面拉壞
+      let html = '<ul class="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">';
+      top10Works.forEach((work, index) => {
         const bgColors = ['bg-yellow-400', 'bg-slate-300', 'bg-amber-600'];
         const badgeColor = bgColors[index] || 'bg-slate-200';
+        const textColor = index < 3 ? 'text-white' : 'text-slate-600'; // 前三名白色字，後七名深色字
         
         html += `
           <li onclick="handleSelectStudent('${work.id}')" class="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-slate-50 to-white border border-slate-100 shadow-sm transition-transform hover:-translate-y-1 cursor-pointer hover:border-amber-200" title="點擊前往觀看">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center font-black text-white shadow-inner ${badgeColor}">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center font-black ${textColor} shadow-inner ${badgeColor}">
                 ${index + 1}
               </div>
               <span class="font-bold text-slate-700">${work.id.slice(-3)}</span>
             </div>
-            <div class="flex items-center gap-1 text-pink-500 font-bold bg-pink-50 px-2 py-1 rounded-lg">
-              <i data-lucide="heart" class="w-4 h-4 fill-current"></i>
-              ${work.likes}
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 text-blue-500 font-bold bg-blue-50 px-2 py-1 rounded-lg text-xs" title="播放次數">
+                <i data-lucide="play" class="w-3 h-3 fill-current"></i>
+                ${work.clicks}
+              </div>
+              <div class="flex items-center gap-1 text-pink-500 font-bold bg-pink-50 px-2 py-1 rounded-lg text-xs" title="愛心數">
+                <i data-lucide="heart" class="w-3 h-3 fill-current"></i>
+                ${work.likes}
+              </div>
             </div>
           </li>
         `;
@@ -507,7 +545,7 @@
             
             <!-- 備用方案：若有時學校網路或檔案權限不允許內嵌，仍可提供原連結 -->
             <div class="text-right mt-3 pr-2">
-              <a href="${student.link}" target="_blank" onclick="trackAction('新分頁開啟繪本(備用)', '${student.id}')" class="text-sm text-slate-400 hover:text-amber-600 font-medium transition-colors inline-flex items-center gap-1">
+              <a href="${student.link}" target="_blank" onclick="trackAction('新分頁開啟繪本(備用)', '${student.id}'); globalClicks['${student.id}'] = (globalClicks['${student.id}'] || 0) + 1; renderLeaderboard();" class="text-sm text-slate-400 hover:text-amber-600 font-medium transition-colors inline-flex items-center gap-1">
                 <i data-lucide="external-link" class="w-4 h-4"></i> 畫面出不來？點此開啟原始網頁
               </a>
             </div>
@@ -576,6 +614,10 @@
     window.playInlineVideo = function(id, url) {
       // 傳送追蹤記錄給 GAS
       trackAction('內嵌播放繪本', id);
+      
+      // 更新全域點擊數並即時刷新排行榜
+      globalClicks[id] = (globalClicks[id] || 0) + 1;
+      renderLeaderboard();
       
       // 隱藏漸層遮罩，顯示真正的 iframe 影片
       document.getElementById('overlay-' + id).classList.add('hidden');
